@@ -1,0 +1,10 @@
+-normalize
+-denoise
+-de-ess
+-dehum
+-gating (not necessary)
+-equalize
+-low/highpass
+-compress
+-balance
+-sync
