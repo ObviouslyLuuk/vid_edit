@@ -96,6 +96,7 @@ def warp_images(image_tensor, point, factor):
     return warped
 
 
+# TODO: add option for line instead of point
 
 
 

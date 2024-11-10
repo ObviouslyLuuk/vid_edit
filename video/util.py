@@ -132,10 +132,10 @@ def extract_frames(vid_path:str, outdir:str=None, fps:int=1, ext:str='jpg'):
     # Extract frames
     print(f"Extracting frames from {vid_path}")
     start_time = time()
-    if fps is None:
-        command = f'ffmpeg -i {vid_path} {outdir}/frame_%04d.{ext}'
-    else:
-        command = f'ffmpeg -i {vid_path} -vf fps={fps} {outdir}/frame_%04d.{ext}'
+    command = f'ffmpeg -i {vid_path} -q:v 2 '
+    if fps is not None:
+        command += f'-vf fps={fps} '
+    command += f'{outdir}/%04d.{ext}'
     output = subprocess.run(command, shell=True, capture_output=True)
     if output.returncode != 0:
         print(f"Error: {output.stderr}")
@@ -226,7 +226,7 @@ def construct_video(indir:str, outpath:str, fps:int=30, src_vid_path:str=None):
     print(f"Constructing video from {indir}")
     start_time = time()
     ext = os.listdir(indir)[0].split('.')[-1]
-    command = f'ffmpeg -r {fps} -i {indir}/frame_%04d.{ext} -c:v libx264 -vf fps={fps} {outpath}'
+    command = f'ffmpeg -r {fps} -i {indir}/%04d.{ext} -c:v libx264 -vf fps={fps} {outpath}'
     output = subprocess.run(command, shell=True, capture_output=True)
     if output.returncode != 0:
         print(f"Error: {output.stderr}")
