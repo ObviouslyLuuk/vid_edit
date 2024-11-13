@@ -116,7 +116,7 @@ if __name__ == '__main__':
     # Parse args
     parser = argparse.ArgumentParser()
     parser.add_argument("--root_dir", type=str, default="./")
-    parser.add_argument("--video_name", type=str, default="face_test")
+    parser.add_argument("--video_name", type=str, default="back_test")
     parser.add_argument("--frame_dirname", type=str, default="crop_frames")
     args = parser.parse_args()
     
@@ -125,21 +125,34 @@ if __name__ == '__main__':
     FRAME_DIR = os.path.join(ROOT_DIR, VIDEO_NAME, args.frame_dirname)
     print("Absolute path to frame directory: ", os.path.abspath(FRAME_DIR))
     frame_names = get_frame_names(FRAME_DIR)
-
-    predictor = SAM2VideoPredictor.from_pretrained("facebook/sam2-hiera-tiny")
-    predictor = predictor.to(device)
     
-    inference_state = predictor.init_state(
-        video_path=FRAME_DIR,
-        offload_video_to_cpu=True,
-        offload_state_to_cpu=True,
-        async_loading_frames=False,
-    )
-    
-    ann_frame_idx = 0  # the frame index we interact with
+    ann_frame_idx = 24  # the frame index we interact with
     ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
 
     img = Image.open(os.path.join(FRAME_DIR, frame_names[ann_frame_idx]))
+
+    # Make tmp dir with just the frame we are working with
+    tmp_dir = os.path.join(ROOT_DIR, VIDEO_NAME, "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    img.save(os.path.join(tmp_dir, frame_names[ann_frame_idx]))
+    # Make tiny dummy frames in that directory up to the frame we are working with
+    dummy_img = Image.new('RGB', img.size, color = 'red')
+    for i in range(ann_frame_idx):
+        dummy_img.save(os.path.join(tmp_dir, frame_names[i]))
+
+
+    INFERENCE_STATE_PATH = os.path.join(ROOT_DIR, VIDEO_NAME, "sam_init_inference_state.pth")
+    PROMPTS_PATH = os.path.join(ROOT_DIR, VIDEO_NAME, "sam_prompts.pth")
+
+    predictor = SAM2VideoPredictor.from_pretrained("facebook/sam2-hiera-tiny")
+    predictor = predictor.to(device)
+
+    inference_state = predictor.init_state(
+        video_path=tmp_dir,
+        offload_video_to_cpu=True,
+        offload_state_to_cpu=True,
+        async_loading_frames=True,
+    )
 
     points = []
     labels = []
@@ -154,11 +167,16 @@ if __name__ == '__main__':
 
     # Save the state to a file
     points, labels = cast_points_to_array(points, labels)
-    state = {
-        "inference_state": inference_state,
-        "frame_idx": ann_frame_idx,
-        "obj_id": ann_obj_id,
-        "points": points,
-        "labels": labels,
-    }
-    torch.save(state, os.path.join(ROOT_DIR, VIDEO_NAME, "init_sam_state.pth"))
+    prompts = [
+        {
+            "frame_idx": ann_frame_idx,
+            "obj_id": ann_obj_id,
+            "points": points,
+            "labels": labels,
+        }
+    ]
+    torch.save(prompts, PROMPTS_PATH)
+    # torch.save(inference_state, INFERENCE_STATE_PATH)
+
+    # Remove the tmp dir and its contents
+    os.system(f"rm -r {tmp_dir}")
